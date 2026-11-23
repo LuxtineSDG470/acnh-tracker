@@ -5,10 +5,14 @@
 <div class="page-title"><div><span class="eyebrow">COLLECTIONS / {{ categories[category]|upper }}</span><h1>{{ icons[category] }} {{ categories[category] }}</h1><p class="muted" id="collection-progress" data-owned="{{ total_owned }}" data-total="{{ overall_total }}">{{ total_owned }} / {{ overall_total }} collected · {{ 'Northern' if hemisphere=='north' else 'Southern' }} Hemisphere</p></div></div>
 <div class="category-tabs" aria-label="Collection categories">{% for key,label in categories.items() %}<a class="{{ 'active' if key == category else '' }}" href="{{ url_for('collection',category=key) }}">{{ icons[key] }} {{ label }}</a>{% endfor %}</div>
 <div class="collection-layout">
-<form method="get" action="{{ current_collection_url }}" class="filters panel filters-sidebar" id="filters" data-category="{{ category }}" data-user="{{ user['id'] }}">
+<button type="button" class="filter-drawer-toggle" id="filter-drawer-toggle" aria-controls="filters" aria-expanded="false" aria-label="Open collection filters" title="Show filters">
+  <span class="filter-drawer-arrow" aria-hidden="true">❯</span><span class="filter-drawer-label">Filters</span>
+</button>
+<div class="filter-drawer-backdrop" id="filter-drawer-backdrop" hidden></div>
+<form method="get" action="{{ current_collection_url }}" class="filters panel filters-sidebar filter-drawer" id="filters" data-category="{{ category }}" data-user="{{ user['id'] }}" aria-label="Collection filters">
   <div class="filters-sidebar-header">
     <h2>Filters</h2>
-    <a href="{{ url_for('collection',category=category,reset=1) }}" class="button subtle small">Clear</a>
+    <div class="filter-drawer-heading-actions"><a href="{{ url_for('collection',category=category,reset=1) }}" class="button subtle small">Clear</a><button type="button" id="filter-drawer-close" class="filter-drawer-close" aria-label="Close filters">✕</button></div>
   </div>
 
   <details class="filter-block" open>

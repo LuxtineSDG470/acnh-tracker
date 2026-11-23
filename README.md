@@ -6,7 +6,7 @@ An independent, English-language Animal Crossing: New Horizons collection tracke
 - **One Docker container:** no Node.js runtime, external database, or Home Assistant required
 - **Data:** six collection categories (939 bundled collectibles) and bundled artwork (923 images / 887 linked items)
 - **Per-user:** accounts, checkmarks, hemisphere, timezone, checklist preferences, and theme
-- **Tracker:** seasonal/current-time availability, live sidebar filters, typo-tolerant search, compact cards, larger Art cards, DIY progressive browsing and event/checklist pages
+- **Tracker:** seasonal/current-time availability, a hidden left-edge filter drawer with live filters, typo-tolerant search, compact cards, larger Art cards, DIY progressive browsing and event/checklist pages
 - **Recovery:** personal progress export/import, timestamped complete backup, database backup, admin-only verified restore, and persistent `/data` storage
 
 ## Deploy to a Raspberry Pi with Portainer
@@ -45,4 +45,4 @@ The `tests/` folder is **development/CI code**. It is needed in GitHub but is no
 
 ## Releases
 
-See [CHANGELOG.md](CHANGELOG.md) for history and [RELEASE_NOTES_v0.1.20.md](RELEASE_NOTES_v0.1.20.md) for the cleanup details. This is a cleanup release, **not a schema change**.
+See [CHANGELOG.md](CHANGELOG.md) for history and [RELEASE_NOTES_v0.1.22.md](RELEASE_NOTES_v0.1.22.md) for the latest UI update. This release does **not** change the database schema.

@@ -8,14 +8,12 @@
     <div class="button-row"><a class="button primary" href="{{ url_for('collection',category='fish') }}">Explore collections</a><a class="button subtle" href="{{ url_for('checklist') }}">Daily checklist</a></div>
   </div><div class="hero-illustration" aria-hidden="true"><div>✿</div><div>✦</div><div>❀</div></div>
 </section>
-{% set all_total = stats.values()|sum(attribute='total') %}
-{% set all_owned = stats.values()|sum(attribute='owned') %}
 <div class="summary-row">
-  <div class="stat-box"><span class="muted">Collected</span><strong>{{ all_owned }}</strong><small>Across all categories</small></div>
-  <div class="stat-box"><span class="muted">In the catalog</span><strong>{{ all_total }}</strong><small>Items available to track</small></div>
-  <div class="stat-box"><span class="muted">Completion</span><strong>{{ ((100*all_owned/all_total)|round|int) if all_total else 0 }}%</strong><small>Keep exploring!</small></div>
+  <div class="stat-box"><span class="muted">Collected</span><strong>{{ overview_owned }}</strong><small>Main collections · excluding DIY</small></div>
+  <div class="stat-box"><span class="muted">In the catalog</span><strong>{{ overview_total }}</strong><small>Main collections · excluding DIY</small></div>
+  <div class="stat-box"><span class="muted">Completion</span><strong>{{ overview_percent }}%</strong><small>Main collections · excluding DIY</small></div>
 </div>
-{% if not all_total %}
+{% if not overview_total %}
 <div class="tip"><strong>Catalog unavailable:</strong> The built-in collection data could not be loaded. Check container startup logs and confirm the release image contains the catalog bundle. Your saved progress has not been reset.</div>
 {% endif %}
 <div class="section-heading"><h2>Your collections</h2><p class="muted">Pick a category to continue.</p></div>

@@ -37,6 +37,38 @@ class AuthenticatedPagesTests(unittest.TestCase):
             sess['uid'] = self.uid
             sess['csrf'] = 'test-csrf-token'
 
+    def test_overview_excludes_diy_but_shows_separate_recipe_progress(self):
+        with sqlite3.connect(self.app.config['DATABASE']) as conn:
+            for category, limit in (('fish', 10), ('diy', 16)):
+                names = [row[0] for row in conn.execute(
+                    'SELECT name FROM catalog_items WHERE category=? LIMIT ?', (category, limit))]
+                conn.executemany(
+                    'INSERT INTO owned_items(user_id,category,name) VALUES (?,?,?)',
+                    ((self.uid, category, name) for name in names))
+            main_count = conn.execute(
+                "SELECT COUNT(*) FROM catalog_items WHERE category!='diy'").fetchone()[0]
+            recipe_count = conn.execute(
+                "SELECT COUNT(*) FROM catalog_items WHERE category='diy'").fetchone()[0]
+        self.assertEqual(main_count, 316)
+        self.assertEqual(recipe_count, 623)
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200, response.data[:300])
+        self.assertIn(b'<span class="muted">Collected</span><strong>10</strong>', response.data)
+        self.assertIn(f'<span class="muted">In the catalog</span><strong>{main_count}</strong>'.encode(), response.data)
+        self.assertIn(b'<span class="muted">Completion</span><strong>3%</strong>', response.data)
+        self.assertIn(b'16 / 623 collected', response.data)
+        self.assertIn(b'excluding DIY', response.data)
+
+    def test_collection_filters_include_offcanvas_drawer_controls(self):
+        response = self.client.get('/collections/fish?month=all')
+        self.assertEqual(response.status_code, 200, response.data[:300])
+        self.assertIn(b'id="filter-drawer-toggle"', response.data)
+        self.assertIn(b'aria-expanded="false"', response.data)
+        self.assertIn(b'id="filter-drawer-backdrop" hidden', response.data)
+        self.assertIn(b'id="filter-drawer-close"', response.data)
+        self.assertIn(b'class="filters panel filters-sidebar filter-drawer"', response.data)
+        self.assertIn(b'name="hemisphere"', response.data)
+
     def test_all_six_collection_pages_render_with_populated_cards(self):
         for category in ('fish','bugs','deepsea','fossil','art','diy'):
             with self.subTest(category=category):

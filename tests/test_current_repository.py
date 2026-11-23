@@ -27,6 +27,21 @@ class CurrentRepositoryTests(unittest.TestCase):
         self.assertNotIn('hemisphere-switch', template)
         self.assertNotIn("@app.post('/collections/hemisphere')", web)
 
+    def test_offscreen_drawer_and_overview_exclusion_are_wired(self):
+        page = (ROOT / 'app/templates/collection.html').read_text()
+        javascript = (ROOT / 'app/static/app.js').read_text()
+        css = (ROOT / 'app/static/style.css').read_text()
+        overview_page = (ROOT / 'app/templates/home.html').read_text()
+        web = (ROOT / 'app/web.py').read_text()
+        self.assertIn('id="filter-drawer-toggle"', page)
+        self.assertIn('id="filter-drawer-backdrop" hidden', page)
+        self.assertIn('filterDrawerToggle.addEventListener', javascript)
+        self.assertIn("filters.toggleAttribute('inert', !open)", javascript)
+        self.assertIn('translateX(calc(-100% - 6px))', css)
+        self.assertIn("cat != 'diy'", web)
+        self.assertIn('overview_percent', overview_page)
+        self.assertNotIn("stats.values()|sum(attribute='total')", overview_page)
+
     def test_no_old_catalog_import_messages_in_user_facing_templates(self):
         for name in ('auth.html', 'home.html', 'bunny.html'):
             with self.subTest(name=name):

@@ -220,6 +220,38 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const filters = document.querySelector('#filters[data-category][data-user]');
+  const filterDrawerToggle = document.querySelector('#filter-drawer-toggle');
+  const filterDrawerBackdrop = document.querySelector('#filter-drawer-backdrop');
+  const filterDrawerClose = document.querySelector('#filter-drawer-close');
+  if (filters && filterDrawerToggle && filterDrawerBackdrop) {
+    // Without JavaScript, the form stays visible in the page as a fallback.
+    // With JavaScript, it becomes an off-canvas drawer, closed by default.
+    document.body.classList.add('filter-drawer-ready');
+    function setFilterDrawer(open, focusTrigger = false) {
+      filters.classList.toggle('is-open', open);
+      filterDrawerToggle.classList.toggle('is-open', open);
+      filterDrawerToggle.setAttribute('aria-expanded', String(open));
+      filterDrawerToggle.setAttribute('aria-label', open ? 'Close collection filters' : 'Open collection filters');
+      filterDrawerToggle.title = open ? 'Hide filters' : 'Show filters';
+      filterDrawerBackdrop.hidden = !open;
+      filters.toggleAttribute('inert', !open);
+      filters.setAttribute('aria-hidden', String(!open));
+      document.body.classList.toggle('filter-drawer-open', open);
+      if (open) filterDrawerClose?.focus({preventScroll: true});
+      else if (focusTrigger) filterDrawerToggle.focus({preventScroll: true});
+    }
+    setFilterDrawer(false);
+    filterDrawerToggle.addEventListener('click', () => {
+      setFilterDrawer(filterDrawerToggle.getAttribute('aria-expanded') !== 'true', true);
+    });
+    filterDrawerClose?.addEventListener('click', () => setFilterDrawer(false, true));
+    filterDrawerBackdrop.addEventListener('click', () => setFilterDrawer(false, true));
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && filterDrawerToggle.getAttribute('aria-expanded') === 'true') {
+        setFilterDrawer(false, true);
+      }
+    });
+  }
   let results = document.querySelector('#collection-results');
   let inFlight = null;
   let requestSerial = 0;

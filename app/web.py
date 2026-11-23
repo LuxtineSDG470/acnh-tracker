@@ -223,7 +223,19 @@ def create_app(test_config=None):
     @app.get('/')
     @requires_login
     def index():
-        return render_template('home.html', stats=stats())
+        collection_stats = stats()
+        # DIY recipes remain a separately tracked category but do not inflate
+        # the Overview's primary collectible totals or completion percentage.
+        overview_categories = (cat for cat in CATEGORIES if cat != 'diy')
+        overview_owned = overview_total = 0
+        for cat in overview_categories:
+            overview_owned += collection_stats[cat]['owned']
+            overview_total += collection_stats[cat]['total']
+        overview_percent = round(100 * overview_owned / overview_total) if overview_total else 0
+        return render_template('home.html', stats=collection_stats,
+                               overview_owned=overview_owned,
+                               overview_total=overview_total,
+                               overview_percent=overview_percent)
 
     @app.get('/collections/<category>')
     @requires_login
