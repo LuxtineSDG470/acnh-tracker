@@ -1,0 +1,203 @@
+name: Test and publish Docker image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Python tests and application smoke check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install runtime dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile Python sources
+        run: python -m compileall -q app wsgi.py
+      - name: Validate browser JavaScript
+        run: node --check app/static/app.js
+      - name: Verify bundled artwork integrity
+        run: python scripts/verify_bundle.py
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Check Flask health and login routes
+        run: |
+          export DATA_DIR="$RUNNER_TEMP/acnh-test-data"
+          # Portainer may pass TZ=${TZ} as an empty string; /login must not crash.
+          export TZ=""
+          python - <<'PYTEST'
+          from wsgi import app
+          with app.test_client() as client:
+              for route, expected in [('/health', b'ok'), ('/login', b'ACNH')]:
+                  response = client.get(route)
+                  assert response.status_code == 200, (route, response.status_code)
+                  assert expected in response.data, route
+          print('Flask route checks passed')
+          PYTEST
+
+  container-smoke:
+    name: Build and smoke-test Linux AMD64 container
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify bundled artwork integrity
+        run: python scripts/verify_bundle.py
+      - name: Build container
+        run: docker build --tag acnh-tracker:ci .
+      - name: Run container and verify persistent storage
+        run: |
+          set -euo pipefail
+          docker volume create acnh-ci-data
+          docker run -d --name acnh-ci --read-only --tmpfs /tmp \
+            --security-opt no-new-privileges --publish 127.0.0.1:18080:8080 \
+            --volume acnh-ci-data:/data \
+            --env TZ= --env DATA_DIR=/data \
+            acnh-tracker:ci
+          trap 'docker logs acnh-ci || true; docker rm -f acnh-ci || true; docker volume rm acnh-ci-data || true' EXIT
+          for i in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:18080/health | grep -q ok; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent --show-error http://127.0.0.1:18080/health | grep -q ok
+          # The HTML route previously returned HTTP 500 for blank TZ.
+          curl --fail --silent --show-error http://127.0.0.1:18080/login | grep -q ACNH
+          docker exec acnh-ci python -c 'from pathlib import Path; assert Path("/data/tracker.sqlite3").is_file(); assert Path("/data/.flask-secret").is_file()'
+          docker exec acnh-ci python -c 'import sqlite3; from pathlib import Path; c=sqlite3.connect("/data/tracker.sqlite3"); assert c.execute("select count(*) from catalog_items").fetchone()[0] == 939; assert c.execute("select count(*) from catalog_images").fetchone()[0] == 887; assert len(list(Path("/data/artwork").rglob("*.png"))) > 500'
+          # Render authenticated collection pages using the installed catalog.
+          # /login and /health alone cannot catch imported Jinja macro context errors.
+          docker exec -i acnh-ci python - <<'PYTEST'
+          import sqlite3
+          from wsgi import app
+          with sqlite3.connect('/data/tracker.sqlite3') as db:
+              uid = db.execute("INSERT INTO users(username,password_hash,display_name,is_admin) VALUES ('ciuser','unused','CI User',1)").lastrowid
+              fish = db.execute("SELECT name FROM catalog_items WHERE category='fish' LIMIT 1").fetchone()[0]
+          with app.test_client() as client:
+              with client.session_transaction() as sess:
+                  sess['uid'] = uid
+                  sess['csrf'] = 'ci-check'
+              for category in ('fish','bugs','deepsea','fossil','art','diy'):
+                  response = client.get('/collections/'+category+'?month=all')
+                  assert response.status_code == 200, (category, response.status_code, response.data[:400])
+                  assert b'Mark collected' in response.data, category
+              may = client.get('/collections/fish?month=5')
+              assert may.status_code == 200 and b'Available in May' in may.data
+              assert b'Always Available' in may.data and b'New' in may.data
+              art = client.get('/collections/art?month=all')
+              assert art.status_code == 200 and b'Paintings' in art.data and b'Sculptures' in art.data
+              response = client.get('/events/bunny')
+              assert response.status_code == 200, (response.status_code, response.data[:400])
+              response = client.post('/collection/set', data={
+                  '_csrf':'ci-check','category':'fish','name':fish,'have':'1'},
+                  follow_redirects=True)
+              assert response.status_code == 200, (response.status_code, response.data[:400])
+          with sqlite3.connect('/data/tracker.sqlite3') as db:
+              assert db.execute('SELECT COUNT(*) FROM owned_items WHERE user_id=? AND category=? AND name=?',
+                                (uid, 'fish', fish)).fetchone()[0] == 1
+          print('Authenticated collection rendering and check-off smoke test passed')
+          PYTEST
+          docker restart acnh-ci
+          for i in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:18080/health | grep -q ok; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent --show-error http://127.0.0.1:18080/health | grep -q ok
+          docker exec acnh-ci python -c 'from pathlib import Path; assert Path("/data/tracker.sqlite3").is_file(); assert Path("/data/.flask-secret").is_file()'
+          docker exec acnh-ci python -c 'import sqlite3; from pathlib import Path; c=sqlite3.connect("/data/tracker.sqlite3"); assert c.execute("select count(*) from catalog_items").fetchone()[0] == 939; assert c.execute("select count(*) from catalog_images").fetchone()[0] == 887; assert len(list(Path("/data/artwork").rglob("*.png"))) > 500'
+          echo 'Container and persistence smoke checks passed'
+
+      - name: Reproduce and fix root-owned Portainer bind mount
+        run: |
+          set -euo pipefail
+          mountdir="$(mktemp -d)"
+          mkdir -p "$mountdir/artwork"
+          printf 'keep-existing-artwork' > "$mountdir/artwork/existing.txt"
+          # CI runner owns this directory, not the container's UID 10001.
+          # No chown is done on the host before the container starts.
+          chmod 0755 "$mountdir" "$mountdir/artwork"
+          docker run -d --name acnh-bind --read-only --tmpfs /tmp \
+            --security-opt no-new-privileges --publish 127.0.0.1:18081:8080 \
+            --volume "$mountdir:/data" \
+            --env TZ=America/Chicago --env DATA_DIR=/data \
+            acnh-tracker:ci
+          trap 'docker logs acnh-bind || true; docker rm -f acnh-bind || true; sudo rm -rf "$mountdir"' EXIT
+          for i in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:18081/health | grep -q ok; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent --show-error http://127.0.0.1:18081/health | grep -q ok
+          docker exec --user 10001:10001 acnh-bind python -c 'from pathlib import Path; assert Path("/data/.flask-secret").is_file(); assert Path("/data/tracker.sqlite3").is_file(); assert Path("/data/artwork/existing.txt").read_text() == "keep-existing-artwork"'
+          docker exec --user 10001:10001 acnh-bind python -c 'import sqlite3; from pathlib import Path; c=sqlite3.connect("/data/tracker.sqlite3"); assert c.execute("select count(*) from catalog_items").fetchone()[0] == 939; assert c.execute("select count(*) from catalog_images").fetchone()[0] == 887'
+          docker exec acnh-bind python -c 'from pathlib import Path; line=next(s for s in Path("/proc/1/status").read_text().splitlines() if s.startswith("Uid:")); assert line.split()[1:] == ["10001"]*4, line'
+          before="$(docker exec --user 10001:10001 acnh-bind python -c 'import hashlib; from pathlib import Path; print(hashlib.sha256(Path("/data/.flask-secret").read_bytes()).hexdigest())')"
+          docker restart acnh-bind
+          for i in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:18081/health | grep -q ok; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent --show-error http://127.0.0.1:18081/health | grep -q ok
+          after="$(docker exec --user 10001:10001 acnh-bind python -c 'import hashlib; from pathlib import Path; print(hashlib.sha256(Path("/data/.flask-secret").read_bytes()).hexdigest())')"
+          test "$before" = "$after"
+          echo 'Root-owned bind mount repaired; app is non-root and data survived restart'
+
+  publish:
+    name: Publish ARM64 and AMD64 image to GHCR
+    needs: [tests, container-smoke]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate image tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/luxtinesdg470/acnh-tracker
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}}
+            type=sha,prefix=sha-
+          labels: |
+            org.opencontainers.image.title=ACNH Tracker
+            org.opencontainers.image.description=Independent Python Animal Crossing collection tracker
+            org.opencontainers.image.source=https://github.com/LuxtineSDG470/acnh-tracker
+      - name: Build and publish for Raspberry Pi and PCs
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/arm64,linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

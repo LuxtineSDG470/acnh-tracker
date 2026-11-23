@@ -1,0 +1,23 @@
+.git
+.env
+__pycache__
+*.pyc
+.pytest_cache
+app-data
+*.sqlite*
+*.zip
+*.db
+.tmp
+
+# The checked-in artwork archive is required by first-run catalog initialization.
+!bundle/artwork-pack.zip
+# The runtime image copies only app/, bundle/, and the two entrypoints.
+tests/
+scripts/
+.github/
+*.md
+compose*.yaml
+*.log
+**/.pytest_cache/
+**/__pycache__/
+

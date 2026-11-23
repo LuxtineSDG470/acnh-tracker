@@ -1,0 +1,29 @@
+# ACNH Tracker Docker deployment — images are published by GitHub Actions.
+# Keep the host /opt/acnh-tracker-data separate from your older /opt/nook.
+# Port 5050 avoids conflicts with the old tracker on port 5049.
+services:
+  tracker:
+    image: ghcr.io/luxtinesdg470/acnh-tracker:latest
+    pull_policy: always
+    container_name: ACNH-Tracker
+    ports:
+      - "${ACNH_PORT:-5050}:8080"
+    volumes:
+      - /opt/acnh-tracker-data:/data
+    environment:
+      TZ: "${TZ:-America/Chicago}"
+      DATA_DIR: /data
+      ALLOW_REGISTRATION: "${ALLOW_REGISTRATION:-1}"
+      # Set to "1" only behind HTTPS.
+      SECURE_COOKIES: "${SECURE_COOKIES:-0}"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

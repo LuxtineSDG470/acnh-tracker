@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Data and backups{% endblock %}
+{% block content %}
+<div class="page-title"><div><span class="eyebrow">DATA MANAGEMENT</span><h1>💾 Backups & progress</h1><p class="muted">Keep your personal collection progress safe and move between installations.</p></div></div>
+<p class="muted small-copy">Offline fallback: a collection page you already opened keeps recent checkmarks locally and can queue changes if your Pi disconnects. Reconnecting syncs pending changes. This does not provide full offline navigation without an HTTPS service worker.</p>
+<button id="clear-offline-cache" type="button" class="button subtle small">Clear this browser’s offline cache</button>
+<div class="data-grid">
+  <section class="panel"><h2>Export your progress</h2><p class="muted">Download the collected item names for your own account as JSON. This can be loaded on another ACNH Tracker installation.</p><a class="button primary" href="{{ url_for('export_progress') }}">↓ Export collections</a></section>
+  <section class="panel"><h2>Import collection progress</h2><p class="muted">Supports progress JSON exported by your previous ACNH Tracker or this version. Each signed-in account imports its own collection.</p><form class="stack-form" method="post" action="{{ url_for('import_progress') }}" enctype="multipart/form-data"><input name="_csrf" type="hidden" value="{{ csrf }}"><label>Progress JSON<input type="file" name="file" accept=".json,application/json" required></label><label>Import behavior<select name="mode"><option value="merge">Merge collected items</option><option value="replace">Replace my collected items</option></select></label><button class="button primary" type="submit">↑ Import progress</button></form></section>
+  {% if user['is_admin'] %}
+  <section class="panel"><h2>Restore full backup ZIP</h2>
+    <p class="muted">Restore a complete backup from this Python ACNH Tracker (accounts, checkmarks, settings, daily tasks, Money Tree history and artwork). <strong>This replaces all current installation data and accounts.</strong> Previous account passwords are restored from the backup; current sessions will sign out.</p>
+    <form class="stack-form" method="post" action="{{ url_for('restore_full_backup') }}" enctype="multipart/form-data" id="complete-restore-form">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <label>Complete-backup ZIP (up to 80 MB)<input type="file" name="file" accept=".zip,application/zip" required></label>
+      <label>Current administrator password<input type="password" name="password" autocomplete="current-password" required></label>
+      <label>Action<select name="mode" id="restore-mode"><option value="preview">Preview and validate — change nothing</option><option value="restore">Restore — replace all installed data</option></select></label>
+      <label>For a full restore only, type RESTORE<input name="confirm" id="restore-confirm" placeholder="RESTORE" autocomplete="off"></label>
+      <button class="button primary" type="submit">Review or restore backup</button>
+    </form>
+    <p class="small-copy muted">The app validates the archive and SQLite database before replacing anything, retains a pre-restore database safety copy, and prevents path traversal. Restore only your own trusted backup. This restore workflow is for complete backups created by ACNH Tracker.</p>
+  </section>
+  <section class="panel"><h2>Download full backup</h2><p class="muted">Save a portable ZIP containing the current SQLite accounts, collection progress and imported artwork. This file includes password hashes—store it privately.</p><a class="button primary" href="{{ url_for('complete_backup') }}">↓ Complete backup ZIP</a><p class="small-copy muted">A separate rolling database backup is also kept daily. Neither backup is uploaded to another service.</p><a href="{{ url_for('manual_backup') }}">Download SQLite database only</a></section>
+  {% endif %}
+</div>
+{% endblock %}

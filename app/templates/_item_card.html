@@ -1,0 +1,75 @@
+{% macro item_card(item, category, csrf, hemisphere) %}
+<article class="item-card item-card-{{ category }} {{ 'is-owned' if item.owned else '' }}" data-item-name="{{ item.name }}" data-item-category="{{ category }}" data-item-owned="{{ '1' if item.owned else '0' }}">
+  <div class="item-top"><span class="item-category">{{ item.meta.get('kind') or category }}</span><span class="item-position">#{{ item.position }}</span></div>
+  <div class="item-media">
+  {% if item.image %}
+    {% if category == 'art' %}<a class="art-image-link" href="{{ url_for('item_artwork', category=category, name=item.name) }}" target="_blank" rel="noopener" title="View full-size artwork" aria-label="View full-size artwork: {{ item.name }}">{% endif %}
+    <img class="item-artwork" src="{{ url_for('item_artwork', category=category, name=item.name) }}" alt="{{ item.name }}" loading="lazy" decoding="async">
+    {% if category == 'art' %}</a>{% endif %}
+  {% else %}
+    <div class="item-artwork-placeholder" role="img" aria-label="Artwork unavailable"><span>{{ {'fish':'🐟','bugs':'🦋','deepsea':'🐙','fossil':'🦴','art':'🖼️','diy':'🛠️'}.get(category,'📦') }}</span><small>Artwork unavailable</small></div>
+  {% endif %}
+  </div>
+  {% if category == 'diy' %}
+    {% set recipe_kind = item.meta.get('type', '') %}
+    {% set recipe_icons = {'Tool':'🧰','Houseware':'🏠','Miscellaneous':'📦','Wall-mounted':'🧱','Wallpaper / Flooring / Rug':'🧵','Equipment':'👕','Other':'🪵'} %}
+    <span class="recipe-type-icon" title="{{ recipe_kind }} recipe" aria-label="{{ recipe_kind }} recipe">{{ recipe_icons.get(recipe_kind, '🛠️') }}</span>
+  {% endif %}
+  <h3>{{ item.name }}</h3>
+  {% set badges = item.get('badges', {}) %}
+  <div class="availability-tags" aria-label="Availability status">
+      {% if item.get('available_now') %}<span class="availability-tag tag-now" title="Available to catch at this time in your hemisphere">🟢 Available now</span>{% endif %}
+      {% if badges.get('new') %}<span class="availability-tag tag-new" title="Season starts in selected month">✨ New</span>{% endif %}
+      {% if badges.get('leaving') %}<span class="availability-tag tag-leaving" title="Season ends after selected month">🍂 Leaving</span>{% endif %}
+  </div>
+  <div class="price price-slot">{% if item.price is not none %}💰 {{ '{:,}'.format(item.price) }} <span>Bells</span>{% endif %}</div>
+  <div class="item-metadata">
+    {% if category == 'fish' %}
+      {% set keys = [('location','Where','📍'),('time','Hours','🕒'),('size','Shadow','🐟'),('rarity','Rarity','⭐')] %}
+    {% elif category == 'bugs' %}
+      {% set keys = [('location','Where','📍'),('time','Hours','🕒'),('rarity','Rarity','⭐')] %}
+    {% elif category == 'deepsea' %}
+      {% set keys = [('size','Shadow','📏'),('movement','Movement','💨'),('time','Hours','🕒'),('rarity','Rarity','⭐'),('catches','Catches','🎣')] %}
+    {% elif category == 'fossil' %}
+      {% set keys = [('type','Type','🦴')] %}
+    {% elif category == 'art' %}
+      {% set keys = [('artist','Artist','🎨'),('real_name','Original','🖼️')] %}
+    {% elif category == 'diy' %}
+      {% set keys = [('type','Type','🏷️'),('size','Size','📏')] %}
+    {% else %}
+      {% set keys = [] %}
+    {% endif %}
+    {% for key,label,emoji in keys %}
+      {% set value = item.meta.get(key) %}
+      <div class="item-detail{{ ' is-empty' if value is none or value == '' else '' }}"{% if value is none or value == '' %} aria-hidden="true"{% endif %}>{% if value is not none and value != '' %}<span>{{ emoji }} {{ label }}</span><strong>{{ value }}</strong>{% endif %}</div>
+    {% endfor %}
+    {% if category == 'art' %}
+      <div class="item-detail{{ ' is-empty' if item.meta.get('forgery') is none else '' }}"{% if item.meta.get('forgery') is none %} aria-hidden="true"{% endif %}>{% if item.meta.get('forgery') is not none %}<span>🔎 Forgery</span><strong>{{ 'Fake version exists' if item.meta.forgery else 'Always genuine' }}</strong>{% endif %}</div>
+    {% endif %}
+  </div>
+  <div class="item-extras">
+  {% if category == 'art' and item.meta.get('forgery') and item.meta.get('clues') %}
+    <div class="art-forgery-warning" role="note"><span aria-hidden="true">⚠️</span><span>{% for clue in item.meta.clues|unique %}{{ clue }}{% if not loop.last %} {% endif %}{% endfor %}</span></div>
+  {% endif %}
+  {% if category == 'diy' and item.meta.get('sources') %}
+    <div class="item-sources" title="{{ item.meta.sources|join(' · ') }}">📍 Found: {{ item.meta.sources|join(' · ') }}</div>
+  {% endif %}
+  {% if category == 'diy' and item.meta.get('materials') %}
+    <details><summary>🧰 Materials ({{ item.meta.materials|length }})</summary><p class="tiny-copy">{% for m in item.meta.materials %}{{ m.quantity }} × {{ m.name }}{% if not loop.last %} · {% endif %}{% endfor %}</p></details>
+  {% endif %}
+  </div>
+  <div class="item-months">
+  {% if item.meta.get('months') is mapping %}
+    {% set months = item.meta.months.get(hemisphere, '') %}
+    {% if months|length == 12 %}<div class="month-dots" title="Available months: January to December">{% for char in months %}<span class="{{ 'active' if char == '1' else '' }}" title="{{ ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][loop.index0] }}">{{ ['J','F','M','A','M','J','J','A','S','O','N','D'][loop.index0] }}</span>{% endfor %}</div>{% endif %}
+  {% endif %}
+  </div>
+  <form action="{{ url_for('set_collection') }}" method="post" class="collect-form">
+    <input type="hidden" name="_csrf" value="{{ csrf }}">
+    <input type="hidden" name="category" value="{{ category }}">
+    <input type="hidden" name="name" value="{{ item.name }}">
+    <input type="hidden" name="have" value="{{ '0' if item.owned else '1' }}">
+    <button class="collect-button {{ 'collected' if item.owned else '' }}" type="submit" aria-pressed="{{ 'true' if item.owned else 'false' }}">{{ '✓ Collected' if item.owned else '+ Mark collected' }}</button>
+  </form>
+</article>
+{% endmacro %}

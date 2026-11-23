@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}Events{% endblock %}
+{% block content %}
+<div class="page-title"><div><span class="eyebrow">SEASONAL ACTIVITIES</span><h1>🎉 Events</h1><p class="muted">A familiar part of your island experience.</p></div></div>
+<div class="category-grid events-grid"><a class="event-card panel" href="{{ url_for('bunny') }}"><span class="event-emoji">🐇</span><h2>Bunny Day</h2><p>Keep track of themed DIY recipes and materials.</p><span class="button primary">Explore event</span></a><a class="event-card panel" href="{{ url_for('nature') }}"><span class="event-emoji">🌍</span><h2>Nature Day</h2><p>Placeholder from your existing tracker, ready for future features.</p><span class="button subtle">View details</span></a></div>
+{% endblock %}

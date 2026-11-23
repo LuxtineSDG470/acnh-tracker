@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% from '_item_card.html' import item_card %}
+{% block title %}Bunny Day{% endblock %}
+{% block content %}
+<div class="page-title"><div><span class="eyebrow">EVENTS / BUNNY DAY</span><h1>🐇 Bunny Day</h1><p class="muted">Find and track Bunny Day recipes in your collection.</p></div><a class="button subtle" href="{{ url_for('events') }}">← Events</a></div>
+<section class="panel"><h2>Recipe material totals</h2>{% if materials %}<div class="materials-grid">{% for mat,qty in materials %}<span class="pill material">{{ mat }} <strong>× {{ qty }}</strong></span>{% endfor %}</div>{% else %}<p class="muted">No Bunny Day recipes matched the included catalog.</p>{% endif %}</section>
+<div class="results-heading"><h2>Recipes ({{ items|length }})</h2></div>
+<div class="item-grid">{% for item in items %}{{ item_card(item,'diy',csrf,hemisphere) }}{% endfor %}</div>
+{% endblock %}

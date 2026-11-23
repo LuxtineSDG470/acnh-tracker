@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% from '_item_card.html' import item_card %}
+{% block title %}{{ categories[category] }}{% endblock %}
+{% block content %}
+<div class="page-title"><div><span class="eyebrow">COLLECTIONS / {{ categories[category]|upper }}</span><h1>{{ icons[category] }} {{ categories[category] }}</h1><p class="muted" id="collection-progress" data-owned="{{ total_owned }}" data-total="{{ overall_total }}">{{ total_owned }} / {{ overall_total }} collected · {{ 'Northern' if hemisphere=='north' else 'Southern' }} Hemisphere</p></div></div>
+<div class="category-tabs" aria-label="Collection categories">{% for key,label in categories.items() %}<a class="{{ 'active' if key == category else '' }}" href="{{ url_for('collection',category=key) }}">{{ icons[key] }} {{ label }}</a>{% endfor %}</div>
+<div class="collection-layout">
+<form method="get" action="{{ current_collection_url }}" class="filters panel filters-sidebar" id="filters" data-category="{{ category }}" data-user="{{ user['id'] }}">
+  <div class="filters-sidebar-header">
+    <h2>Filters</h2>
+    <a href="{{ url_for('collection',category=category,reset=1) }}" class="button subtle small">Clear</a>
+  </div>
+
+  <details class="filter-block" open>
+    <summary>Search{% if q %} · {{ q }}{% endif %}</summary>
+    <div class="filter-block-body">
+      <label class="search-label">Search<input type="search" name="q" value="{{ q }}" placeholder="Name, artist, artwork..." maxlength="100"></label>
+    </div>
+  </details>
+
+  <details class="filter-block" open>
+    <summary>Status{% if status == 'missing' %} · Uncollected{% elif status == 'owned' %} · Collected{% endif %}</summary>
+    <div class="filter-block-body">
+      <label>Collection<select name="status"><option value="all">All items</option><option value="missing" {{ 'selected' if status=='missing' }}>Not collected</option><option value="owned" {{ 'selected' if status=='owned' }}>Collected</option></select></label>
+    </div>
+  </details>
+
+  <details class="filter-block" open>
+    <summary>View{% if hemisphere %} · {{ 'Northern' if hemisphere == 'north' else 'Southern' }}{% endif %}</summary>
+    <div class="filter-block-body">
+      <label>Hemisphere<select name="hemisphere"><option value="north" {{ 'selected' if hemisphere=='north' }}>Northern Hemisphere</option><option value="south" {{ 'selected' if hemisphere=='south' }}>Southern Hemisphere</option></select></label>
+      <label>Sort<select name="sort"><option value="name" {{ 'selected' if sort=='name' }}>Name A–Z</option><option value="catalog" {{ 'selected' if sort=='catalog' }}>Catalog order</option><option value="price_high" {{ 'selected' if sort=='price_high' }}>Price high–low</option><option value="price_low" {{ 'selected' if sort=='price_low' }}>Price low–high</option></select></label>
+    </div>
+  </details>
+
+  {% if category in ['fish', 'bugs', 'deepsea'] %}
+  <details class="filter-block" open>
+    <summary>Season{% if month != 'all' %} · {{ months[(month|int)-1][1] if month != 'all' else 'All months' }}{% endif %}{% if season != 'all' %} · {{ season|capitalize }}{% endif %}</summary>
+    <div class="filter-block-body">
+      <label>Month<select name="month"><option value="all" {{ 'selected' if month=='all' }}>All months</option>{% for n,label in months %}<option value="{{ n }}" {{ 'selected' if month==n|string }}>{{ label }}</option>{% endfor %}</select></label>
+      <label>Season<select name="season"><option value="all" {{ 'selected' if season=='all' }}>Any</option><option value="new" {{ 'selected' if season=='new' }}>New this month</option><option value="leaving" {{ 'selected' if season=='leaving' }}>Leaving this month</option></select></label>
+    </div>
+  </details>
+  {% endif %}
+
+  {% for field,choices in facets.items() %}
+    {% if choices %}
+    <details class="filter-block" {% if selected[field] %}open{% endif %}>
+      <summary>{{ 'Obtained from' if field == 'sources' else field|capitalize }}{% if selected[field] %} ({{ selected[field]|length }}){% endif %}</summary>
+      <div class="filter-block-body facet-options">
+      {% for choice in choices %}<label><input type="checkbox" name="{{ field }}" value="{{ choice }}" {{ 'checked' if choice in selected[field] }}> <span>{{ choice }}</span></label>{% endfor %}
+      </div>
+    </details>
+    {% endif %}
+  {% endfor %}
+  <div class="filter-buttons"><button type="submit" class="button primary">Apply filters</button></div>
+</form>
+
+<section class="collection-main">
+<div id="collection-results" aria-busy="false"><div class="results-heading"><div><h2 aria-live="polite">{{ total_filtered }} result{{ '' if total_filtered==1 else 's' }}</h2><span class="muted small-copy" id="collection-remaining" data-remaining="{{ overall_total - total_owned }}">{% if category == 'diy' %}Showing {{ diy_displayed }} of {{ total_filtered }} matching recipes{% else %}{{ total_filtered }} matching items{% endif %} · {{ overall_total - total_owned }} still to collect</span></div><a class="button small {{ 'primary' if status=='missing' else 'subtle' }}" href="{{ show_missing_url }}">{{ '✓ Show all' if status=='missing' else '☐ Uncollected only' }}</a></div>
+{% if items %}
+  {% if month != 'all' and category in ['fish','bugs','deepsea'] %}
+    {% if available_now_items %}
+    <section class="group-block">
+      <div class="group-heading"><h3>🗓️ Available in {{ current_month_name }}</h3><span class="pill">{{ available_now_items|length }} items</span></div>
+      <div class="item-grid" data-collection-grid>{% for item in available_now_items %}{{ item_card(item,category,csrf,hemisphere) }}{% endfor %}</div>
+    </section>
+    {% endif %}
+    {% if always_available_items %}
+    <section class="group-block">
+      <div class="group-heading"><h3>♾️ Always Available</h3><span class="pill">{{ always_available_items|length }} items</span></div>
+      <div class="item-grid" data-collection-grid>{% for item in always_available_items %}{{ item_card(item,category,csrf,hemisphere) }}{% endfor %}</div>
+    </section>
+    {% endif %}
+  {% elif category == 'art' %}
+    {% if paintings %}<section class="group-block"><div class="group-heading"><h3>🖼️ Paintings</h3><span class="pill">{{ paintings|length }} items</span></div>
+      <div class="item-grid item-grid-art" data-collection-grid>{% for item in paintings %}{{ item_card(item,category,csrf,hemisphere) }}{% endfor %}</div></section>{% endif %}
+    {% if sculptures %}<section class="group-block"><div class="group-heading"><h3>🗿 Sculptures</h3><span class="pill">{{ sculptures|length }} items</span></div>
+      <div class="item-grid item-grid-art" data-collection-grid>{% for item in sculptures %}{{ item_card(item,category,csrf,hemisphere) }}{% endfor %}</div></section>{% endif %}
+  {% else %}
+  <div class="item-grid" data-collection-grid>{% for item in items %}{{ item_card(item,category,csrf,hemisphere) }}{% endfor %}</div>
+  {% endif %}
+{% else %}<div class="empty panel"><div>🔎</div><h2>No matching items</h2><p class="muted">{% if overall_total == 0 %}No collection items are available. Check the application startup logs for catalog initialization errors.{% else %}Try adjusting the filters or selecting all months.{% endif %}</p><a class="button subtle" href="{{ url_for('data_page') if overall_total==0 else url_for('collection',category=category) }}">{{ 'View status' if overall_total==0 else 'Reset filters' }}</a></div>{% endif %}
+{% if category == 'diy' and diy_more_url %}
+<div class="diy-more" aria-label="Browse additional recipes">
+  <p class="muted small-copy">Showing {{ diy_displayed }} of {{ total_filtered }} matching recipes. Your filters and sorting are kept as you browse.</p>
+  <div class="button-row"><a class="button primary" href="{{ diy_more_url }}" data-collection-page>Show {{ [60, total_filtered - diy_displayed]|min }} more recipes</a><a class="button subtle" href="{{ diy_all_url }}" data-collection-page>Show all {{ total_filtered }}</a></div>
+</div>
+{% endif %}
+{% if last_page>1 %}<div class="pagination">{% if prev_page_url %}<a class="button subtle" data-collection-page href="{{ prev_page_url }}">← Previous</a>{% endif %}<span>{{ page }} / {{ last_page }}</span>{% if next_page_url %}<a class="button subtle" data-collection-page href="{{ next_page_url }}">Next →</a>{% endif %}</div>{% endif %}
+</div>
+</section>
+</div>
+{% endblock %}

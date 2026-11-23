@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Daily checklist{% endblock %}
+{% block content %}
+<div id="daily-checklist" data-day="{{ today }}" data-timezone="{{ user_timezone }}" data-reset-mode="{{ reset_mode }}">
+<div class="page-title"><div><span class="eyebrow">ISLAND ROUTINE</span><h1>☀️ Daily checklist</h1><p class="muted">{{ today }} · {{ user_timezone }} · {{ 'Resets automatically at local midnight' if reset_mode=='automatic' else 'Keeps checked tasks until you reset them' }}</p></div><form action="{{ url_for('checklist_reset') }}" method="post"><input type="hidden" name="_csrf" value="{{ csrf }}"><button class="button subtle" type="submit">Reset checklist</button></form></div>
+<div class="task-grid">{% for key,label,emoji in tasks %}<form action="{{ url_for('task_update') }}" method="post" class="task-form {{ 'done' if key in done else '' }}"><input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="task" value="{{ key }}"><input type="hidden" name="done" value="{{ '0' if key in done else '1' }}"><button type="submit"><span class="task-emoji">{{ emoji }}</span><span class="task-name">{{ label }}</span><span class="task-check">{{ '✓' if key in done else '+' }}</span></button></form>{% endfor %}</div>
+</div>
+<section class="panel journal"><div class="section-heading"><div><h2>🌱 Money tree journal</h2><p class="muted">Record your outcomes for reference. Money-tree "fertile day" patterns have been disproved, so this journal does not produce predictions.</p></div></div>
+<div class="tree-sequence-controls" aria-label="Money Tree journal day controls">
+  <form method="post" action="{{ url_for('tree_extend') }}"><input type="hidden" name="_csrf" value="{{ csrf }}"><button type="submit" class="button small subtle" name="action" value="add">＋ Add day</button></form>
+  <form method="post" action="{{ url_for('tree_extend') }}"><input type="hidden" name="_csrf" value="{{ csrf }}"><button type="submit" class="button small subtle" name="action" value="remove">－ Remove latest day</button></form>
+  <span class="muted tiny-copy">You can also choose any date below or remove a specific observation.</span>
+</div>
+<div class="tree-timeline-heading"><h3>Recent observations</h3><p class="muted small-copy">Select an outcome for each date; the entries are observations, not forecasts.</p></div>
+<div class="tree-timeline" role="group" aria-label="Seven-day money tree history">
+{% for record in timeline %}
+  <div class="tree-day">
+    <strong>{{ record.label }}</strong>
+    <span class="tree-state tree-state-{{ record.outcome }}">{{ {'fertile':'✓ Fertile','normal':'× Normal','unknown':'? Unknown'}.get(record.outcome, 'Unknown') }}</span>
+    <form action="{{ url_for('tree_update') }}" method="post" class="tree-day-actions">
+      <input type="hidden" name="_csrf" value="{{ csrf }}"><input type="hidden" name="day" value="{{ record.day }}"><input type="hidden" name="week" value="{{ week }}">
+      <button type="submit" name="outcome" value="unknown" title="Unknown" aria-label="Mark {{ record.day }} unknown" class="{{ 'selected' if record.outcome=='unknown' else '' }}">?</button>
+      <button type="submit" name="outcome" value="normal" title="Normal" aria-label="Mark {{ record.day }} normal" class="{{ 'selected' if record.outcome=='normal' else '' }}">×</button>
+      <button type="submit" name="outcome" value="fertile" title="Fertile" aria-label="Mark {{ record.day }} fertile" class="{{ 'selected' if record.outcome=='fertile' else '' }}">✓</button>
+      <button type="submit" name="outcome" value="remove" title="Remove entry" aria-label="Remove {{ record.day }} entry">⌫</button>
+    </form>
+  </div>
+{% endfor %}
+</div>
+<div class="tree-pager">{% if week < 520 %}<a class="button small subtle" href="{{ url_for('checklist',week=week+1) }}">← Earlier 7 days</a>{% endif %}{% if week > 0 %}<a class="button small subtle" href="{{ url_for('checklist',week=week-1) if week>1 else url_for('checklist') }}">Later 7 days →</a>{% endif %}</div>
+<form class="journal-form" action="{{ url_for('tree_update') }}" method="post"><input type="hidden" name="_csrf" value="{{ csrf }}"><label>Date<input name="day" type="date" value="{{ today }}" required></label><label>Outcome<select name="outcome"><option value="unknown">Unknown</option><option value="normal">Normal</option><option value="fertile">Fertile</option><option value="remove">Remove entry</option></select></label><button class="button primary" type="submit">Save day</button></form>
+{% if journal %}<div class="journal-list">{% for row in journal %}<span class="journal-pill {{ row.outcome }}">{{ row.day }} · {{ row.outcome|capitalize }}</span>{% endfor %}</div>{% else %}<p class="muted">No days logged yet.</p>{% endif %}</section>
+{% endblock %}

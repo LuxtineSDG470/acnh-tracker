@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Preferences{% endblock %}
+{% block content %}
+<div class="page-title"><div><span class="eyebrow">ACCOUNT</span><h1>⚙ Preferences</h1><p class="muted">{{ user['display_name'] }}'s collection settings</p></div></div>
+<form method="post" class="panel settings-panel settings-form">
+  <input type="hidden" name="_csrf" value="{{ csrf }}">
+  <div class="settings-grid-two">
+    <label>Island hemisphere
+      <select name="hemisphere"><option value="north" {{ 'selected' if user['hemisphere']=='north' }}>Northern Hemisphere</option><option value="south" {{ 'selected' if user['hemisphere']=='south' }}>Southern Hemisphere</option></select>
+    </label>
+    <label>Appearance
+      <select name="theme"><option value="light" {{ 'selected' if user['theme']=='light' }}>Light</option><option value="dark" {{ 'selected' if user['theme']=='dark' }}>Dark</option></select>
+    </label>
+  </div>
+  <div class="setting-group">
+    <label for="timezone-field">Your time zone (IANA name)</label>
+    <div class="timezone-field-row">
+      <input id="timezone-field" name="timezone" list="timezone-suggestions" value="{{ user['timezone'] or '' }}" placeholder="Use server time zone" maxlength="100" autocomplete="off">
+      <button type="button" id="detect-timezone" class="button subtle small">Use device zone</button>
+    </div>
+    <datalist id="timezone-suggestions"><option value="America/Chicago"><option value="America/New_York"><option value="America/Denver"><option value="America/Los_Angeles"><option value="America/Phoenix"><option value="America/Anchorage"><option value="Pacific/Honolulu"><option value="America/Toronto"><option value="America/Mexico_City"><option value="Europe/London"><option value="Europe/Paris"><option value="Asia/Tokyo"><option value="Australia/Sydney"><option value="Pacific/Auckland"><option value="UTC"></datalist>
+    <p class="muted small-copy">Current: <strong>{{ effective_timezone }}</strong>. Leave blank to follow the Docker server's time zone ({{ server_timezone }}). Seasonal availability and automatic daily resets use this setting.</p>
+  </div>
+  <label>Daily checklist reset
+    <select name="daily_reset_mode">
+      <option value="automatic" {{ 'selected' if user['daily_reset_mode']=='automatic' }}>Automatically each day at local midnight</option>
+      <option value="manual" {{ 'selected' if user['daily_reset_mode']=='manual' }}>Only when I press Reset</option>
+    </select>
+  </label>
+  <p class="muted small-copy">Switching modes retains today's checked tasks. Your Money Tree history and collection progress are never reset by this setting.</p>
+  <div class="settings-actions"><button class="button primary" type="submit">Save preferences</button></div>
+</form>
+{% endblock %}

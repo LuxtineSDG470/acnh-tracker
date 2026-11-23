@@ -1,0 +1,20 @@
+.env
+*.db
+*.db-*
+*.sqlite*
+*.zip
+app-data/
+__pycache__/
+.pytest_cache/
+.venv/
+.DS_Store
+
+# The checked-in artwork archive is required by first-run catalog initialization.
+!bundle/artwork-pack.zip
+**/__pycache__/
+**/.pytest_cache/
+*.pyc
+*.pyo
+local-data/
+*.log
+

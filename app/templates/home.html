@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<section class="welcome panel accent-panel">
+  <div><span class="eyebrow">YOUR ISLAND, AT A GLANCE</span>
+    <h1>Welcome back, {{ user['display_name'] }} <span aria-hidden="true">🌿</span></h1>
+    <p>Track your finds, check today's tasks, and see how your collections grow.</p>
+    <div class="button-row"><a class="button primary" href="{{ url_for('collection',category='fish') }}">Explore collections</a><a class="button subtle" href="{{ url_for('checklist') }}">Daily checklist</a></div>
+  </div><div class="hero-illustration" aria-hidden="true"><div>✿</div><div>✦</div><div>❀</div></div>
+</section>
+{% set all_total = stats.values()|sum(attribute='total') %}
+{% set all_owned = stats.values()|sum(attribute='owned') %}
+<div class="summary-row">
+  <div class="stat-box"><span class="muted">Collected</span><strong>{{ all_owned }}</strong><small>Across all categories</small></div>
+  <div class="stat-box"><span class="muted">In the catalog</span><strong>{{ all_total }}</strong><small>Items available to track</small></div>
+  <div class="stat-box"><span class="muted">Completion</span><strong>{{ ((100*all_owned/all_total)|round|int) if all_total else 0 }}%</strong><small>Keep exploring!</small></div>
+</div>
+{% if not all_total %}
+<div class="tip"><strong>Catalog unavailable:</strong> The built-in collection data could not be loaded. Check container startup logs and confirm the release image contains the catalog bundle. Your saved progress has not been reset.</div>
+{% endif %}
+<div class="section-heading"><h2>Your collections</h2><p class="muted">Pick a category to continue.</p></div>
+<div class="category-grid">
+  {% for key, label in categories.items() %}
+  {% set st = stats[key] %}
+  <a href="{{ url_for('collection',category=key) }}" class="category-card">
+    <span class="category-icon icon-{{ key }}">{{ icons[key] }}</span>
+    <span class="card-line"><strong>{{ label }}</strong><span class="pill">{{ st.percent }}%</span></span>
+    <span class="muted small-copy">{{ st.owned }} / {{ st.total }} collected</span>
+    <progress class="progress-track" value="{{ st.percent }}" max="100" aria-label="{{ label }} collection completion">{{ st.percent }}%</progress>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

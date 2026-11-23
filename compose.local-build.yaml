@@ -1,0 +1,24 @@
+# Offline/local-build fallback; production deployment uses compose.yaml.
+services:
+  tracker:
+    build: .
+    image: acnh-tracker:local
+    container_name: ACNH-Tracker
+    ports:
+      - "${ACNH_PORT:-5050}:8080"
+    volumes:
+      - /opt/acnh-tracker-data:/data
+    environment:
+      TZ: "${TZ:-America/Chicago}"
+      DATA_DIR: /data
+      ALLOW_REGISTRATION: "${ALLOW_REGISTRATION:-1}"
+      SECURE_COOKIES: "${SECURE_COOKIES:-0}"
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
